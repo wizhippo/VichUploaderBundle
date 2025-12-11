@@ -36,6 +36,7 @@ class VichUploaderExtensionTest extends AbstractExtensionTestCase
         $this->container->setParameter('kernel.root_dir', __DIR__.'/../Fixtures/App/app');
         $this->container->setParameter('kernel.project_dir', __DIR__.'/../Fixtures/App');
         $this->container->setParameter('kernel.cache_dir', \sys_get_temp_dir());
+        $this->container->setParameter('kernel.build_dir', \sys_get_temp_dir());
         $this->container->setParameter('kernel.debug', true);
     }
 
@@ -78,6 +79,7 @@ class VichUploaderExtensionTest extends AbstractExtensionTestCase
                     'namer' => ['service' => null, 'options' => null],
                     'directory_namer' => ['service' => null, 'options' => null],
                     'delete_on_remove' => true,
+                    'erase_fields' => true,
                     'delete_on_update' => true,
                     'inject_on_load' => true,
                 ],
@@ -86,6 +88,7 @@ class VichUploaderExtensionTest extends AbstractExtensionTestCase
 
         // the default db_driver is copied into the mapping
         $mappings['foo']['db_driver'] = 'orm';
+        $mappings['foo']['namer_keep_extension'] = false;
 
         $this->assertContainerBuilderHasParameter('vich_uploader.mappings', $mappings);
     }
@@ -101,8 +104,10 @@ class VichUploaderExtensionTest extends AbstractExtensionTestCase
                     'namer' => ['service' => null, 'options' => null],
                     'directory_namer' => ['service' => null, 'options' => null],
                     'delete_on_remove' => true,
+                    'erase_fields' => true,
                     'delete_on_update' => true,
                     'inject_on_load' => true,
+                    'namer_keep_extension' => false,
                     'db_driver' => 'orm',
                 ],
             ],
@@ -122,6 +127,7 @@ class VichUploaderExtensionTest extends AbstractExtensionTestCase
                     'namer' => ['service' => null, 'options' => null],
                     'directory_namer' => ['service' => null, 'options' => null],
                     'delete_on_remove' => true,
+                    'erase_fields' => true,
                     'delete_on_update' => false,
                     'inject_on_load' => true,
                 ],
@@ -143,7 +149,7 @@ class VichUploaderExtensionTest extends AbstractExtensionTestCase
 
         $twigExtension->load([[
             'strict_variables' => true,
-            'exception_controller' => null, // TODO remove after bumping symfony/twig-bundle to ^5.0
+            // 'exception_controller' => null, // TODO remove after bumping symfony/twig-bundle to ^5.0
             'form_themes' => ['@Ololo/trololo.html.twig'],
         ]], $this->container);
         $vichUploaderExtension->load([$this->getMinimalConfiguration()], $this->container);

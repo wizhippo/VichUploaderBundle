@@ -9,10 +9,12 @@ use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
-use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
 use Vich\UploaderBundle\Exception\MissingPackageException;
 use Vich\UploaderBundle\Metadata\CacheWarmer;
+use Vich\UploaderBundle\Naming\DirectoryNamerInterface;
+use Vich\UploaderBundle\Naming\NamerInterface;
 use Vich\UploaderBundle\Storage\StorageInterface;
 
 /**
@@ -30,10 +32,14 @@ final class VichUploaderExtension extends Extension
 
     public function load(array $configs, ContainerBuilder $container): void
     {
+        $container->registerForAutoconfiguration(DirectoryNamerInterface::class)->addTag('vich_uploader.dir_namer');
+        $container->registerForAutoconfiguration(NamerInterface::class)->addTag('vich_uploader.namer');
+
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
         $config = $this->fixDbDriverConfig($config);
+        $config = $this->fixUploadDestinationConfig($container, $config);
         $config = $this->createNamerServices($container, $config);
 
         // define a few parameters
@@ -50,7 +56,7 @@ final class VichUploaderExtension extends Extension
 
         $this->loadServicesFiles($container, $config);
         $this->registerMetadataDirectories($container, $config);
-        $this->registerAnnotationStrategy($container, $config);
+        $this->registerAttributeStrategy($container, $config);
         $this->registerCacheStrategy($container, $config);
 
         $this->registerListeners($container, $config);
@@ -60,26 +66,26 @@ final class VichUploaderExtension extends Extension
 
     protected function loadServicesFiles(ContainerBuilder $container, array $config): void
     {
-        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../../config'));
+        $loader = new PhpFileLoader($container, new FileLocator(__DIR__.'/../../config'));
 
         $toLoad = [
-            'adapter.xml', 'listener.xml', 'storage.xml', 'injector.xml',
-            'mapping.xml', 'factory.xml', 'namer.xml', 'handler.xml', 'command.xml', 'collector.xml',
+            'adapter.php', 'listener.php', 'storage.php', 'injector.php',
+            'mapping.php', 'factory.php', 'namer.php', 'handler.php', 'command.php', 'collector.php',
         ];
         foreach ($toLoad as $file) {
             $loader->load($file);
         }
 
         if (\in_array($config['storage'], ['gaufrette', 'flysystem'], true)) {
-            $loader->load($config['storage'].'.xml');
+            $loader->load($config['storage'].'.php');
         }
 
         if ($config['form']) {
-            $loader->load('form.xml');
+            $loader->load('form.php');
         }
 
         if ($config['twig']) {
-            $loader->load('twig.xml');
+            $loader->load('twig.php');
         }
     }
 
@@ -133,9 +139,9 @@ final class VichUploaderExtension extends Extension
         ;
     }
 
-    protected function registerAnnotationStrategy(ContainerBuilder $container, array $config): void
+    protected function registerAttributeStrategy(ContainerBuilder $container, array $config): void
     {
-        if (!$container->has('vich_uploader.metadata_driver.annotation')) {
+        if (!$container->has('vich_uploader.metadata_driver.attribute') && !$container->has('vich_uploader.metadata_driver.annotation')) {
             return;
         }
 
@@ -160,6 +166,16 @@ final class VichUploaderExtension extends Extension
                     $container->getDefinition('vich_uploader.metadata.attribute_reader')
                 );
         }
+    }
+
+    /**
+     * @deprecated since 2.9, use registerAttributeStrategy() instead
+     */
+    protected function registerAnnotationStrategy(ContainerBuilder $container, array $config): void
+    {
+        trigger_deprecation('vich/uploader-bundle', '2.9', 'Method "%s" is deprecated, use "registerAttributeStrategy()" instead.', __METHOD__);
+
+        $this->registerAttributeStrategy($container, $config);
     }
 
     protected function registerCacheStrategy(ContainerBuilder $container, array $config): void
@@ -190,6 +206,19 @@ final class VichUploaderExtension extends Extension
         // mapping with no declared db_driver use the top-level one
         foreach ($config['mappings'] as &$mapping) {
             $mapping['db_driver'] = $mapping['db_driver'] ?: $config['db_driver'];
+        }
+
+        return $config;
+    }
+
+    protected function fixUploadDestinationConfig(ContainerBuilder $container, array $config): array
+    {
+        // mapping with no declared upload_destination uses the uri_prefix
+        $prefix = $container->getParameter('kernel.project_dir') ?? '';
+        foreach ($config['mappings'] as &$mapping) {
+            if (!isset($mapping['upload_destination'])) {
+                $mapping['upload_destination'] = $prefix.'/public/'.$mapping['uri_prefix'];
+            }
         }
 
         return $config;

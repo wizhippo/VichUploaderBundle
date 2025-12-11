@@ -9,8 +9,6 @@ use Vich\UploaderBundle\Mapping\PropertyMapping;
 use Vich\UploaderBundle\Util\Transliterator;
 
 /**
- * PropertyNamer.
- *
  * @author Kévin Gomez <contact@kevingomez.fr>
  */
 final class PropertyNamer implements NamerInterface, ConfigurableInterface
@@ -21,6 +19,8 @@ final class PropertyNamer implements NamerInterface, ConfigurableInterface
 
     private bool $transliterate = false;
 
+    private bool $keepExtension = false;
+
     public function __construct(private readonly Transliterator $transliterator)
     {
     }
@@ -29,6 +29,7 @@ final class PropertyNamer implements NamerInterface, ConfigurableInterface
      * @param array $options Options for this namer. The following options are accepted:
      *                       - property: path to the property used to name the file. Can be either an attribute or a method.
      *                       - transliterate: whether the filename should be transliterated or not
+     *                       - keep_extension: whether to keep the original extension or use smart logic
      *
      * @throws \InvalidArgumentException
      */
@@ -40,9 +41,10 @@ final class PropertyNamer implements NamerInterface, ConfigurableInterface
 
         $this->propertyPath = $options['property'];
         $this->transliterate = isset($options['transliterate']) ? (bool) $options['transliterate'] : $this->transliterate;
+        $this->keepExtension = isset($options['keep_extension']) ? (bool) $options['keep_extension'] : $this->keepExtension;
     }
 
-    public function name(object $object, PropertyMapping $mapping): string
+    public function name(object|array $object, PropertyMapping $mapping): string
     {
         if (empty($this->propertyPath)) {
             throw new \LogicException('The property to use can not be determined. Did you call the configure() method?');
@@ -65,7 +67,7 @@ final class PropertyNamer implements NamerInterface, ConfigurableInterface
         }
 
         // append the file extension if there is one
-        if ($extension = $this->getExtension($file)) {
+        if ($extension = $this->getExtensionWithOption($file, $this->keepExtension)) {
             $name = \sprintf('%s.%s', $name, $extension);
         }
 
@@ -75,7 +77,7 @@ final class PropertyNamer implements NamerInterface, ConfigurableInterface
     /**
      * @return mixed|null
      */
-    private function getPropertyValue(object $object, string $propertyPath): mixed
+    private function getPropertyValue(object|array $object, string $propertyPath): mixed
     {
         $accessor = PropertyAccess::createPropertyAccessor();
 

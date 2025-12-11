@@ -20,7 +20,7 @@ framework:
 twig:
     debug:            "%kernel.debug%"
     strict_variables: "%kernel.debug%"
-    exception_controller: null
+#    exception_controller: null
 
 # Doctrine Configuration
 doctrine:
@@ -29,7 +29,6 @@ doctrine:
         path:   "%kernel.cache_dir%/database.db3"
 
     orm:
-        auto_generate_proxy_classes: "%kernel.debug%"
         auto_mapping: true
 
 services:
@@ -40,7 +39,6 @@ services:
         resource: '../../../TestBundle/src/Controller'
     Vich\TestBundle\Naming\:
         resource: '../../../TestBundle/src/Naming'
-        public: true
 
 vich_uploader:
     db_driver: orm

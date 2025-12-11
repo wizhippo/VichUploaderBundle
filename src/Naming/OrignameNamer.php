@@ -20,16 +20,20 @@ final class OrignameNamer implements NamerInterface, ConfigurableInterface
     {
     }
 
+    private bool $keepExtension = false;
+
     /**
      * @param array $options Options for this namer. The following options are accepted:
      *                       - transliterate: whether the filename should be transliterated or not
+     *                       - keep_extension: whether to keep the original extension or use smart logic
      */
     public function configure(array $options): void
     {
         $this->transliterate = isset($options['transliterate']) ? (bool) $options['transliterate'] : $this->transliterate;
+        $this->keepExtension = isset($options['keep_extension']) ? (bool) $options['keep_extension'] : $this->keepExtension;
     }
 
-    public function name(object $object, PropertyMapping $mapping): string
+    public function name(object|array $object, PropertyMapping $mapping): string
     {
         /* @var $file UploadedFile|ReplacingFile */
         $file = $mapping->getFile($object);
@@ -39,7 +43,7 @@ final class OrignameNamer implements NamerInterface, ConfigurableInterface
             $name = $this->transliterator->transliterate($name);
         }
 
-        $extension = $this->getExtension($file);
+        $extension = $this->getExtensionWithOption($file, $this->keepExtension);
 
         if (\is_string($extension) && '' !== $extension && !\str_ends_with($name, ".$extension")) {
             $name .= ".$extension";

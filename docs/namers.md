@@ -70,7 +70,6 @@ To use it, you just have to specify the service for the `namer` configuration op
 # config/services.yaml
 services:
     Vich\UploaderBundle\Naming\SlugNamer:
-        public: true
         arguments:
             $service: '@App\Repository\MyFileRepository'
             $method: findOneByPath
@@ -87,6 +86,51 @@ vich_uploader:
             namer: Vich\UploaderBundle\Naming\SmartUniqueNamer # or any other namer listed above
 ```
 
+### Extension Handling
+
+By default, namers use smart extension logic that preserves specific file extensions (like `.csv`, `.gpx`, `.xlsb`)
+even when the MIME type suggests a different extension.  
+You can control this behavior with the `namer_keep_extension` option:
+
+``` yaml
+vich_uploader:
+    # ...
+    mappings:
+        products:
+            upload_destination: products_fs
+            namer: Vich\UploaderBundle\Naming\SmartUniqueNamer
+            namer_keep_extension: true  # Always keep the original file extension
+```
+
+**Important**: The `namer_keep_extension` option only works with namers that implement `ConfigurableInterface`.
+If you try to use this option with a custom namer that doesn't implement this interface, you'll get an exception
+with instructions on how to fix it.
+
+#### Behavior Examples
+
+With `namer_keep_extension: false` (default):
+
+* `document.csv` → `unique-name-123.csv` (preserved because csv is in the safe list)
+* `document.xyz` → `unique-name-123.txt` (changed to guessed extension)
+
+With `namer_keep_extension: true`:
+
+* `document.csv` → `unique-name-123.csv` (preserved)
+* `document.xyz` → `unique-name-123.xyz` (preserved)
+
+#### Security Considerations
+
+> [!WARNING]
+> When using `namer_keep_extension: true`, always validate file extensions to prevent security risks.
+> Files with potentially dangerous extensions (like `.php`, `.exe`, `.sh`, `.bat`) could pose security threats
+> if served directly by the web server.
+
+Consider using additional security measures such as:
+
+* Storing uploaded files outside the web root
+* Serving files through a controller that validates permissions
+* Using Content-Security-Policy headers to prevent script execution
+
 ### How-to
 
 * [Create a custom file namer](file_namer/howto/create_a_custom_file_namer.md)
@@ -96,8 +140,7 @@ vich_uploader:
 Like file namers, directory namers allow you to customize the directory in which
 uploaded files will be stored.
 
-**Note**:
-
+> [!NOTE]
 > Directory namers are called when a file is uploaded but also later, when you
 > want to retrieve the path or URL of an already uploaded file. That's why
 > **directory namers MUST be stateless** and rely only on the data provided by

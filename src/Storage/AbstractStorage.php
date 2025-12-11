@@ -5,6 +5,7 @@ namespace Vich\UploaderBundle\Storage;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Vich\UploaderBundle\Exception\MappingNotFoundException;
+use Vich\UploaderBundle\Exception\NotUploadableException;
 use Vich\UploaderBundle\FileAbstraction\ReplacingFile;
 use Vich\UploaderBundle\Mapping\PropertyMapping;
 use Vich\UploaderBundle\Mapping\PropertyMappingFactory;
@@ -108,7 +109,7 @@ abstract class AbstractStorage implements StorageInterface
         }
 
         $dir = $mapping->getUploadDir($obj);
-        $path = !empty($dir) ? $dir.'/'.$filename : $filename;
+        $path = (\is_string($dir) && '' !== $dir) ? $dir.'/'.$filename : $filename;
 
         return $mapping->getUriPrefix().'/'.$path;
     }
@@ -117,19 +118,27 @@ abstract class AbstractStorage implements StorageInterface
     {
         $path = $this->resolvePath($obj, $fieldName, $className);
 
-        if (empty($path)) {
+        if (empty($path) || !\is_file($path)) {
             return null;
         }
 
-        return \fopen($path, 'rb');
+        $stream = \fopen($path, 'rb');
+
+        if (false === $stream) {
+            return null;
+        }
+
+        return $stream;
     }
 
     /**
      * note: extension point.
      *
+     * @return array{0: PropertyMapping, 1: string}
+     *
      * @throws MappingNotFoundException
+     * @throws NotUploadableException
      * @throws \RuntimeException
-     * @throws \Vich\UploaderBundle\Exception\NotUploadableException
      */
     protected function getFilename(object|array $obj, ?string $fieldName = null, ?string $className = null): array
     {

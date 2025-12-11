@@ -10,8 +10,7 @@ Here is a summary of what you will have to do:
 * [link the upload mapping to an entity](#step-2-link-the-upload-mapping-to-an-entity) ;
 * [configure the lifecycle events](#step-3-configure-the-lifecycle-events-optional-step) (optional step).
 
-**Note:**
-
+> [!NOTE]
 > Throughout the guide we will use Doctrine ORM as the persistence engine on
 > the examples. Though mostly, there won't be much difference if you use a
 > different engine.
@@ -40,6 +39,10 @@ vich_uploader:
 
 This is the minimal amount of configuration needed in order to describe a
 working mapping.
+
+> [!NOTE]
+> If the `upload_destination` parameter is missing, it is set automatically
+> with the `%kernel.project_dir%/public` and the `uri_prefix` value.
 
 ## Step 2: link the upload mapping to an entity
 
@@ -80,7 +83,7 @@ namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\HttpFoundation\File\File;
-use Vich\UploaderBundle\Mapping\Annotation as Vich;
+use Vich\UploaderBundle\Mapping\Attribute as Vich;
 
 #[ORM\Entity]
 #[Vich\Uploadable]
@@ -97,6 +100,8 @@ class Product
     #[Vich\UploadableField(mapping: 'products', fileNameProperty: 'imageName', size: 'imageSize')]
     private ?File $imageFile = null;
 
+    // NOTE: This field and the next one need to be nullable, otherwise the deletion won't work
+    //       if you want non-nullable fields, set the "erase_fields" option to false in the mapping config
     #[ORM\Column(nullable: true)]
     private ?string $imageName = null;
 
@@ -153,8 +158,7 @@ class Product
 }
 ```
 
-**Note:**
-
+> [!NOTE]
 > This bundle also supports annotations, but the attribute syntax is recommended.
 > If you look for examples about annotations mapping, please refer to an older
 > version of the documentation.
@@ -169,7 +173,7 @@ namespace App\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\HttpFoundation\File\File;
 use Vich\UploaderBundle\Entity\File as EmbeddedFile;
-use Vich\UploaderBundle\Mapping\Annotation as Vich;
+use Vich\UploaderBundle\Mapping\Attribute as Vich;
 
 #[ORM\Entity]
 #[Vich\Uploadable]
@@ -229,13 +233,9 @@ class Product
 }
 ```
 
-**Important:**
+> [!IMPORTANT]
 > If you use Doctrine, you need to pay attention to the comment on `setImageFile` method in the above example.
 > If you miss that, you won't be able to update your file.
-
-**Note:**
-
-> Don't forget to clear the cache once your entity is configured: `php bin/console cache:clear`
 
 ## Step 3: configure the lifecycle events (optional step)
 
@@ -268,9 +268,36 @@ All options are listed below:
     when it is loaded from the data store. The object will be an instance of
     `Symfony\Component\HttpFoundation\File\File`.
 
-**Note:**
-
+> [!NOTE]
 > The values used for the last three configuration options are the default ones.
+
+## Adding Validation (optional)
+
+If you want to ensure that a file is always present (either existing or newly uploaded), you can add the
+`FileRequired` constraint to your uploadable field. This constraint extends Symfony's `NotBlank` with file-specific
+validation logic:
+
+```php
+use Vich\UploaderBundle\Validator\Constraints as VichAssert;
+
+class Product
+{
+    // ... other fields
+
+    #[Vich\UploadableField(mapping: 'products', fileNameProperty: 'image.name')]
+    #[VichAssert\FileRequired(target: 'image')]
+    private ?File $imageFile = null;
+
+    // ... rest of the class
+}
+```
+
+The constraint validates that either an existing file is present or a new file has been uploaded. This is
+particularly useful for required file uploads in forms.
+
+> [!NOTE]
+> For more advanced validation options and details, see the
+> [FileRequired constraint documentation](validators/file_required.md).
 
 ## That was it!
 
